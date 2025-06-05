@@ -1,21 +1,58 @@
 # Echo MCP HTTPS Server
 
-A simple HTTPS MCP (Model Context Protocol) server with an echo tool that supports both development and production environments.
+A production-ready HTTPS MCP (Model Context Protocol) server with an echo tool that supports both development and production environments.
 
 ## Features
 
 - 🔧 **Simple Echo Tool**: Returns input text unchanged
-- 🔒 **HTTPS Support**: Built-in SSL/TLS support
+- 🔒 **HTTPS Support**: Built-in SSL/TLS support with real certificates
 - 🛠️ **Development Mode**: Auto-generates self-signed certificates for local development
-- 🚀 **Production Ready**: Support for provided SSL certificates
+- 🚀 **Production Ready**: Support for SSL certificates and public deployment
 - 🔄 **Environment Detection**: Automatically detects development vs production mode
 - ⚙️ **Configurable**: Command-line arguments and environment variables
-- 📦 **Easy Deployment**: Simple setup and deployment
+- 📦 **Easy Deployment**: Automated deployment scripts and systemd integration
 - 🔍 **MCP Inspector Ready**: Built-in solutions for HTTPS certificate issues
+- 🔐 **Security Features**: Rate limiting, IP whitelisting, reverse proxy support
 
 ## Quick Start
 
-### For MCP Inspector Testing (Recommended)
+### Production Deployment (Public Server)
+
+**1. Automated Installation:**
+```bash
+# Copy project to server
+scp -r echo-mcp-server/ user@your-server:/tmp/
+
+# Run automated deployment
+ssh user@your-server
+sudo /tmp/echo-mcp-server/deploy/install.sh your-domain.com
+```
+
+**2. Configure SSL Certificates:**
+```bash
+# Edit environment file
+sudo nano /opt/echo-mcp-server/.env
+
+# Set your certificate paths:
+SSL_CERTFILE=/home/aynshteyn.dev-ssl-bundle/domain.cert.pem
+SSL_KEYFILE=/home/aynshteyn.dev-ssl-bundle/private.key.pem
+ENV=production
+HOST=0.0.0.0
+PORT=8443
+```
+
+**3. Start the Service:**
+```bash
+sudo systemctl start echo-mcp-server
+sudo systemctl status echo-mcp-server
+```
+
+**4. Test Deployment:**
+```bash
+curl -k https://your-domain.com:8443/mcp
+```
+
+### For MCP Inspector Testing (Development)
 
 **Option 1: HTTP Mode (Easiest)**
 ```bash
@@ -49,16 +86,133 @@ The server will:
 - Start on `https://127.0.0.1:8443/mcp`
 - Show a security warning (normal for self-signed certificates)
 
-### Production Mode
+## Production Deployment Guide
 
+### Prerequisites
+
+- Ubuntu/Debian server with root access
+- Domain name pointing to your server
+- SSL certificate files (Let's Encrypt recommended)
+- Python 3.9+
+
+### Manual Production Setup
+
+**1. Install Dependencies:**
 ```bash
-# With your own SSL certificates
-python -m echo_mcp_server \
-  --production \
-  --cert-file /path/to/cert.pem \
-  --key-file /path/to/key.pem \
-  --host 0.0.0.0 \
-  --port 443
+sudo apt update
+sudo apt install python3 python3-pip python3-venv nginx openssl
+```
+
+**2. Create Installation Directory:**
+```bash
+sudo mkdir -p /opt/echo-mcp-server
+cd /opt/echo-mcp-server
+```
+
+**3. Copy Project Files:**
+```bash
+# Clone from git or copy files
+git clone https://github.com/Vladikasik/mcm-https.git .
+```
+
+**4. Setup Python Environment:**
+```bash
+sudo python3 -m venv env
+source env/bin/activate
+sudo pip install -e .
+```
+
+**5. Configure Environment:**
+```bash
+# Copy and edit environment file
+sudo cp config.env.example .env
+sudo nano .env
+```
+
+Set your production configuration:
+```env
+ENV=production
+HOST=0.0.0.0
+PORT=8443
+SSL_CERTFILE=/home/aynshteyn.dev-ssl-bundle/domain.cert.pem
+SSL_KEYFILE=/home/aynshteyn.dev-ssl-bundle/private.key.pem
+SERVER_NAME=EchoMCPServer
+LOG_LEVEL=info
+```
+
+**6. Install Systemd Service:**
+```bash
+sudo cp deploy/systemd/echo-mcp-server.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable echo-mcp-server
+sudo systemctl start echo-mcp-server
+```
+
+**7. Configure Nginx (Optional but Recommended):**
+```bash
+sudo cp deploy/nginx/echo-mcp-server.conf /etc/nginx/sites-available/
+sudo ln -s /etc/nginx/sites-available/echo-mcp-server.conf /etc/nginx/sites-enabled/
+
+# Edit nginx config with your domain and SSL paths
+sudo nano /etc/nginx/sites-available/echo-mcp-server.conf
+
+# Test and restart nginx
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+### Security Configuration
+
+**1. IP Whitelisting:**
+Update nginx configuration with your allowed IPs:
+```nginx
+# In /etc/nginx/sites-available/echo-mcp-server.conf
+location /mcp {
+    allow YOUR_WHITELISTED_IP;
+    allow 192.168.1.0/24;  # Your network
+    deny all;
+    # ... rest of config
+}
+```
+
+**2. Firewall Setup:**
+```bash
+sudo ufw allow ssh
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw allow 8443/tcp  # Direct MCP access
+sudo ufw enable
+```
+
+**3. SSL Certificate Setup (Let's Encrypt):**
+```bash
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d your-domain.com
+```
+
+### Monitoring and Maintenance
+
+**Check Service Status:**
+```bash
+sudo systemctl status echo-mcp-server
+sudo journalctl -u echo-mcp-server -f
+```
+
+**View Logs:**
+```bash
+# Service logs
+sudo journalctl -u echo-mcp-server --since today
+
+# Nginx logs
+sudo tail -f /var/log/nginx/access.log
+sudo tail -f /var/log/nginx/error.log
+```
+
+**Update Deployment:**
+```bash
+cd /opt/echo-mcp-server
+sudo git pull
+sudo systemctl restart echo-mcp-server
 ```
 
 ## MCP Inspector Connectivity
@@ -172,19 +326,19 @@ python -m echo_mcp_server --help
 #### Options
 
 **Server Configuration:**
-- `--host HOST`: Host to bind to (default: 127.0.0.1)
+- `--host HOST`: Host to bind to (default: 127.0.0.1, production: 0.0.0.0)
 - `--port PORT`: Port to bind to (default: 8443 for HTTPS, 8080 for HTTP)
 - `--name NAME`: Name for the MCP server (default: EchoHTTPS)
 
 **SSL/TLS Configuration:**
-- `--cert-file PATH`: Path to SSL certificate file
-- `--key-file PATH`: Path to SSL private key file
+- `--cert-file PATH`: Path to SSL certificate file (can be set via SSL_CERTFILE env var)
+- `--key-file PATH`: Path to SSL private key file (can be set via SSL_KEYFILE env var)
 - `--no-ssl`: Disable SSL and run in HTTP mode (recommended for MCP Inspector testing)
 - `--trust-cert`: Automatically install self-signed certificate to system trust store (requires sudo)
 
 **Environment Mode:**
 - `--development`: Force development mode (auto-generates certificates)
-- `--production`: Force production mode (requires provided certificates)
+- `--production`: Force production mode (requires provided certificates or env vars)
 
 **Uvicorn Options:**
 - `--workers N`: Number of worker processes (default: 1)
@@ -197,15 +351,20 @@ Create a `.env` file in the project root:
 
 ```env
 # Environment mode
-ENV=development
+ENV=production
 
 # Server configuration
-HOST=127.0.0.1
+HOST=0.0.0.0
 PORT=8443
 
 # SSL configuration (for production)
-SSL_CERT_FILE=/path/to/cert.pem
-SSL_KEY_FILE=/path/to/key.pem
+SSL_CERTFILE=/home/aynshteyn.dev-ssl-bundle/domain.cert.pem
+SSL_KEYFILE=/home/aynshteyn.dev-ssl-bundle/private.key.pem
+
+# Optional settings
+SERVER_NAME=EchoMCPServer
+LOG_LEVEL=info
+WORKERS=1
 ```
 
 ### Examples
@@ -224,16 +383,16 @@ NODE_TLS_REJECT_UNAUTHORIZED=0 npx @modelcontextprotocol/inspector
 # MCP Inspector testing (HTTPS with auto-trust)
 python main.py --trust-cert
 
-# Development on all interfaces
-python main.py --host 0.0.0.0
+# Production with environment variables
+python -m echo_mcp_server --production
 
-# Production with Let's Encrypt certificates
+# Production with explicit certificates
 python -m echo_mcp_server \
   --production \
-  --cert-file /etc/letsencrypt/live/yourdomain.com/fullchain.pem \
-  --key-file /etc/letsencrypt/live/yourdomain.com/privkey.pem \
+  --cert-file /path/to/cert.pem \
+  --key-file /path/to/key.pem \
   --host 0.0.0.0 \
-  --port 443
+  --port 8443
 
 # Development with auto-reload
 python main.py --reload --log-level debug
@@ -271,16 +430,14 @@ For production, you should use certificates from a trusted Certificate Authority
 
 ```bash
 # Install certbot
-sudo apt install certbot
+sudo apt install certbot python3-certbot-nginx
 
 # Get certificate
-sudo certbot certonly --standalone -d yourdomain.com
+sudo certbot --nginx -d yourdomain.com
 
-# Use the certificates
-python -m echo_mcp_server \
-  --production \
-  --cert-file /etc/letsencrypt/live/yourdomain.com/fullchain.pem \
-  --key-file /etc/letsencrypt/live/yourdomain.com/privkey.pem
+# Certificates will be at:
+# /etc/letsencrypt/live/yourdomain.com/fullchain.pem
+# /etc/letsencrypt/live/yourdomain.com/privkey.pem
 ```
 
 #### Self-Signed for Production
@@ -300,6 +457,9 @@ curl -k https://127.0.0.1:8443/mcp
 
 # Test HTTP endpoint
 curl http://127.0.0.1:8080/mcp
+
+# Test production deployment
+curl -k https://your-domain.com:8443/mcp
 ```
 
 ### Using MCP Inspector
@@ -307,50 +467,11 @@ curl http://127.0.0.1:8080/mcp
 The server is compatible with any MCP client. Connect to:
 - **HTTP (Recommended for testing)**: `http://127.0.0.1:8080/mcp`
 - **HTTPS**: `https://127.0.0.1:8443/mcp`
+- **Production**: `https://your-domain.com:8443/mcp`
 
 ### Testing the Echo Tool
 
 Use any MCP client to call the `echo` tool with a text parameter.
-
-## Deployment
-
-### Docker (Optional)
-
-Create a `Dockerfile`:
-
-```dockerfile
-FROM python:3.9-slim
-
-WORKDIR /app
-COPY . .
-
-RUN pip install -e .
-
-EXPOSE 8443
-
-CMD ["python", "-m", "echo_mcp_server", "--host", "0.0.0.0"]
-```
-
-### Systemd Service (Linux)
-
-Create `/etc/systemd/system/echo-mcp.service`:
-
-```ini
-[Unit]
-Description=Echo MCP HTTPS Server
-After=network.target
-
-[Service]
-Type=exec
-User=your-user
-WorkingDirectory=/path/to/echo-mcp-server
-Environment=ENV=production
-ExecStart=/usr/bin/python -m echo_mcp_server --production --host 0.0.0.0
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
 
 ## Project Structure
 
@@ -362,8 +483,15 @@ echo-mcp-https-server/
 │   ├── main.py              # CLI and main function
 │   ├── server.py            # MCP server implementation
 │   └── ssl_utils.py         # SSL certificate utilities
+├── deploy/
+│   ├── install.sh           # Automated deployment script
+│   ├── systemd/
+│   │   └── echo-mcp-server.service  # Systemd service file
+│   └── nginx/
+│       └── echo-mcp-server.conf     # Nginx configuration
 ├── main.py                  # Simple wrapper script
 ├── test_mcp_inspector.sh    # MCP Inspector test helper
+├── config.env.example       # Example environment configuration
 ├── pyproject.toml           # Project configuration
 ├── README.md                # This file
 └── .ssl/                    # Generated certificates (created automatically)
@@ -376,9 +504,9 @@ echo-mcp-https-server/
 ### Setting up for Development
 
 ```bash
-# Clone/download the project
-git clone <repository>
-cd echo-mcp-https-server
+# Clone the repository
+git clone https://github.com/Vladikasik/mcm-https.git
+cd mcm-https
 
 # Install in development mode
 pip install -e ".[dev]"
@@ -414,6 +542,34 @@ ruff check echo_mcp_server/
 5. Manually trust the certificate (see instructions above)
 6. Use browser bypass method
 
+### Production Issues
+
+1. **Service won't start**
+   ```bash
+   sudo journalctl -u echo-mcp-server -f
+   # Check SSL certificate paths in .env file
+   ```
+
+2. **Permission denied on port 443**
+   ```bash
+   # Use CAP_NET_BIND_SERVICE capability (already in systemd service)
+   # Or run on higher port (8443) with nginx proxy
+   ```
+
+3. **SSL certificate errors**
+   ```bash
+   # Verify certificate files exist and are readable
+   sudo ls -la /path/to/certificates/
+   # Check certificate validity
+   openssl x509 -in /path/to/cert.pem -text -noout
+   ```
+
+4. **Nginx proxy errors**
+   ```bash
+   sudo nginx -t  # Test configuration
+   sudo tail -f /var/log/nginx/error.log
+   ```
+
 ### Common Issues
 
 1. **Port already in use**
@@ -422,31 +578,19 @@ ruff check echo_mcp_server/
    python main.py --port 9443
    ```
 
-2. **Permission denied on port 443**
-   ```bash
-   # Run with sudo or use a higher port
-   sudo python -m echo_mcp_server --port 443
-   # Or use port 8443
-   python main.py --port 8443
-   ```
-
-3. **Certificate errors**
+2. **Certificate errors**
    ```bash
    # Delete and regenerate certificates
    rm -rf .ssl/
    python main.py
    ```
 
-4. **Browser warnings for self-signed certificates**
+3. **Browser warnings for self-signed certificates**
    - This is normal for development
    - Click "Advanced" → "Proceed to 127.0.0.1" (or similar)
    - For production, use certificates from a trusted CA
 
-5. **`sudo` required for `--trust-cert`**
-   - This is normal - installing certificates requires admin privileges
-   - Alternative: use `--no-ssl` for testing
-
-6. **Node.js applications ignore system certificates**
+4. **Node.js applications ignore system certificates**
    - This is expected behavior - Node.js has its own certificate validation
    - Use `NODE_TLS_REJECT_UNAUTHORIZED=0` for quick testing
    - Use `NODE_EXTRA_CA_CERTS` for proper certificate validation
@@ -456,7 +600,12 @@ ruff check echo_mcp_server/
 Enable debug logging to see detailed information:
 
 ```bash
+# Development
 python main.py --log-level debug
+
+# Production
+sudo systemctl status echo-mcp-server
+sudo journalctl -u echo-mcp-server -f
 ```
 
 ## License
@@ -469,4 +618,10 @@ MIT License
 2. Create a feature branch
 3. Make your changes
 4. Add tests if applicable
-5. Submit a pull request 
+5. Submit a pull request
+
+## Support
+
+For issues and questions:
+- GitHub Issues: https://github.com/Vladikasik/mcm-https/issues
+- Documentation: See README.md sections above 
