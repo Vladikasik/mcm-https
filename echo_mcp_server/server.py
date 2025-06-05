@@ -80,11 +80,35 @@ class MCPServer:
         print(f"📍 Host: {host}:{port}")
         print(f"🔐 Mode: {'Development' if development_mode else 'Production'}")
         
-        # Determine protocol
+        # Configure FastMCP settings
+        self.mcp.settings.host = host
+        self.mcp.settings.port = port
+        self.mcp.settings.debug = development_mode
+        
+        # Determine protocol and prepare SSL settings
         if cert_file and key_file:
             ssl_context = self._get_ssl_context(cert_file, key_file, development_mode)
             if ssl_context:
                 protocol = "https"
+                # For FastMCP with SSE and SSL, we need to use uvicorn directly
+                # since FastMCP doesn't handle SSL configuration through settings
+                print(f"🌐 Protocol: HTTPS")
+                print(f"📋 SSE Endpoint: https://{host}:{port}/sse")
+                print(f"🛠️  Tools: echo, store_memory, get_memory")
+                print("="*60)
+                
+                # Run with uvicorn directly for SSL support
+                import uvicorn
+                app = self.mcp.sse_app()
+                uvicorn.run(
+                    app,
+                    host=host,
+                    port=port,
+                    ssl_keyfile=key_file,
+                    ssl_certfile=cert_file,
+                    log_level="debug" if development_mode else "info"
+                )
+                return
             else:
                 protocol = "http"
         else:
@@ -95,9 +119,8 @@ class MCPServer:
         print(f"🛠️  Tools: echo, store_memory, get_memory")
         print("="*60)
         
-        # Run FastMCP with SSE transport
+        # Run FastMCP for HTTP
         try:
-            # FastMCP.run() with minimal parameters
             self.mcp.run(transport="sse")
         except Exception as e:
             print(f"❌ Server error: {e}")
