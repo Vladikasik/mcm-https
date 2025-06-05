@@ -10,9 +10,11 @@ This server uses **SSE (Server-Sent Events)** transport, which is **required** b
 
 - **🔄 SSE Transport**: Fully compatible with Anthropic's MCP API requirements
 - **🔒 HTTPS/TLS**: Production-ready SSL/TLS support for domain deployment
-- **🛠️ Multiple Tools**: Echo, memory storage, and memory retrieval tools
+- **🛠️ Multiple Tools**: Echo, memory storage, and Neo4j knowledge graph tools
+- **🧠 Neo4j Integration**: Full knowledge graph functionality with entities, relations, and observations
 - **🌐 Domain Ready**: Configured for `memory.aynshteyn.dev`
 - **⚡ Clean Implementation**: Minimal, focused codebase without unnecessary complexity
+- **🔄 Graceful Fallback**: Runs with basic functionality if Neo4j is not available
 
 ## Endpoints
 
@@ -21,9 +23,22 @@ This server uses **SSE (Server-Sent Events)** transport, which is **required** b
 
 ## Tools Available
 
+### Basic Tools (Always Available)
 1. **echo**: Returns input text with "Echo: " prefix
 2. **store_memory**: Store key-value pairs in memory
 3. **get_memory**: Retrieve values from memory by key
+
+### Neo4j Knowledge Graph Tools (Available when Neo4j is configured)
+4. **create_entities**: Create multiple new entities in the knowledge graph
+5. **create_relations**: Create relationships between entities
+6. **add_observations**: Add new observations to existing entities
+7. **delete_entities**: Delete entities and their relations
+8. **delete_observations**: Delete specific observations from entities
+9. **delete_relations**: Delete relationships between entities
+10. **read_graph**: Read the entire knowledge graph
+11. **search_nodes**: Search for nodes using full-text search
+12. **find_nodes**: Find specific nodes by their names
+13. **open_nodes**: Open specific nodes by their names
 
 ## Quick Start
 
@@ -46,7 +61,7 @@ python main.py
 ```bash
 # Copy and edit configuration
 cp config.env.example .env
-# Edit .env with your SSL certificate paths
+# Edit .env with your SSL certificate paths and Neo4j credentials
 
 # Run production server
 ENV=production python main.py
@@ -69,9 +84,53 @@ SERVER_NAME=MemoryMCP                   # Server name
 SSL_CERTFILE=/path/to/domain.cert.pem   # SSL certificate
 SSL_KEYFILE=/path/to/private.key.pem    # SSL private key
 
+# Neo4j Configuration (Optional)
+NEO4J_URL=neo4j+s://your-database.databases.neo4j.io
+NEO4J_USERNAME=neo4j
+NEO4J_PASSWORD=your-password
+NEO4J_DATABASE=neo4j                    # Optional, defaults to "neo4j"
+
 # Optional
 LOG_LEVEL=info                          # Log level
 DOMAIN=memory.aynshteyn.dev             # Domain name
+```
+
+## Neo4j Setup
+
+The server includes full Neo4j knowledge graph functionality. When Neo4j environment variables are provided, the server will:
+
+1. **Connect to Neo4j**: Establish connection and verify connectivity
+2. **Create Indexes**: Automatically create full-text search indexes
+3. **Enable Tools**: Make all Neo4j tools available via MCP
+4. **Graceful Fallback**: If Neo4j is unavailable, server runs with basic tools only
+
+### Knowledge Graph Structure
+
+- **Entities**: Nodes with name, type, and observations
+- **Relations**: Directed relationships between entities
+- **Observations**: List of text observations attached to entities
+- **Full-text Search**: Search across entity names, types, and observations
+
+### Example Usage
+
+```python
+# Creating entities
+create_entities([
+    {
+        "name": "Project Alpha", 
+        "type": "Project", 
+        "observations": ["Started in Q1", "High priority"]
+    }
+])
+
+# Creating relations
+create_relations([
+    {
+        "source": "John Doe", 
+        "target": "Project Alpha", 
+        "relationType": "MANAGES"
+    }
+])
 ```
 
 ## Testing with Anthropic API

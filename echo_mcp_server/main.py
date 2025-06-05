@@ -2,15 +2,22 @@
 Main entry point for the Memory MCP Server.
 
 This server runs on memory.aynshteyn.dev with both SSE and Streamable HTTP endpoints.
+Now includes Neo4j knowledge graph functionality alongside existing echo functionality.
 """
 
 import os
 import sys
+import logging
 from pathlib import Path
 
 from dotenv import load_dotenv
+from neo4j import GraphDatabase
 
-from .server import MCPServer
+from .server import MCPServer, Neo4jMemory
+
+# Set up logging
+logger = logging.getLogger('mcp_server_main')
+logger.setLevel(logging.INFO)
 
 
 def load_environment():
@@ -21,6 +28,45 @@ def load_environment():
         print(f"✅ Loaded configuration from {env_file}")
     else:
         print("⚠️  No .env file found, using environment variables")
+
+
+def setup_neo4j_connection():
+    """Setup Neo4j connection if environment variables are available."""
+    neo4j_url = os.getenv("NEO4J_URL")
+    neo4j_username = os.getenv("NEO4J_USERNAME")
+    neo4j_password = os.getenv("NEO4J_PASSWORD")
+    neo4j_database = os.getenv("NEO4J_DATABASE", "neo4j")
+    
+    if not all([neo4j_url, neo4j_username, neo4j_password]):
+        print("⚠️  Neo4j environment variables not found. Running without Neo4j functionality.")
+        print("   Required variables: NEO4J_URL, NEO4J_USERNAME, NEO4J_PASSWORD")
+        return None
+    
+    try:
+        print(f"🔗 Connecting to Neo4j at {neo4j_url}")
+        
+        # Connect to Neo4j
+        neo4j_driver = GraphDatabase.driver(
+            neo4j_url,
+            auth=(neo4j_username, neo4j_password),
+            database=neo4j_database
+        )
+        
+        # Verify connection
+        neo4j_driver.verify_connectivity()
+        logger.info(f"✅ Connected to Neo4j at {neo4j_url}")
+        
+        # Initialize Neo4j memory
+        neo4j_memory = Neo4jMemory(neo4j_driver)
+        print("✅ Neo4j memory system initialized")
+        
+        return neo4j_memory
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to connect to Neo4j: {e}")
+        print(f"❌ Neo4j connection failed: {e}")
+        print("   Server will run without Neo4j functionality")
+        return None
 
 
 def main():
@@ -72,9 +118,12 @@ def main():
     
     print("="*50)
     
+    # Setup Neo4j connection
+    neo4j_memory = setup_neo4j_connection()
+    
     try:
         # Create and run the server
-        server = MCPServer(name=server_name)
+        server = MCPServer(name=server_name, neo4j_memory=neo4j_memory)
         server.run(
             host=host,
             port=port,
