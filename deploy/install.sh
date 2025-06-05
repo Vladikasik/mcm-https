@@ -9,7 +9,7 @@ set -e
 PROJECT_NAME="echo-mcp-server"
 INSTALL_DIR="/opt/$PROJECT_NAME"
 SERVICE_USER="www-data"
-DOMAIN="${1:-your-domain.com}"
+DOMAIN="${1:-memory.aynshteyn.dev}"
 
 echo "🚀 Echo MCP HTTPS Server - Production Deployment"
 echo "================================================="
@@ -32,7 +32,7 @@ cd $INSTALL_DIR
 # Install system dependencies
 echo "📦 Installing system dependencies..."
 apt-get update
-apt-get install -y python3 python3-pip python3-venv nginx openssl curl
+apt-get install -y python3 python3-pip python3-venv git curl
 
 # Create Python virtual environment
 echo "🐍 Setting up Python virtual environment..."
@@ -58,8 +58,8 @@ echo "⚙️ Setting up environment configuration..."
 if [ ! -f ".env" ]; then
     cp config.env.example .env
     echo "📝 Created .env file. Please edit it with your SSL certificate paths:"
-    echo "   SSL_CERTFILE=/path/to/your/domain.cert.pem"
-    echo "   SSL_KEYFILE=/path/to/your/private.key.pem"
+    echo "   SSL_CERTFILE=/home/aynshteyn.dev-ssl-bundle/domain.cert.pem"
+    echo "   SSL_KEYFILE=/home/aynshteyn.dev-ssl-bundle/private.key.pem"
 fi
 
 # Set proper ownership
@@ -74,33 +74,22 @@ cp deploy/systemd/echo-mcp-server.service /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable echo-mcp-server
 
-# Configure nginx (optional)
-if command -v nginx &> /dev/null; then
-    echo "🌐 Setting up nginx configuration..."
-    cp deploy/nginx/echo-mcp-server.conf /etc/nginx/sites-available/
+# Configure Caddy (if available)
+if command -v caddy &> /dev/null; then
+    echo "🌐 Setting up Caddy configuration..."
+    cp deploy/caddy/Caddyfile /etc/caddy/
     
-    # Update domain in nginx config
-    sed -i "s/your-domain.com/$DOMAIN/g" /etc/nginx/sites-available/echo-mcp-server.conf
+    # Update domain in Caddy config
+    sed -i "s/memory.aynshteyn.dev/$DOMAIN/g" /etc/caddy/Caddyfile
     
-    # Create symlink if it doesn't exist
-    if [ ! -L "/etc/nginx/sites-enabled/echo-mcp-server.conf" ]; then
-        ln -s /etc/nginx/sites-available/echo-mcp-server.conf /etc/nginx/sites-enabled/
-    fi
+    # Test Caddy configuration
+    caddy validate --config /etc/caddy/Caddyfile && echo "✅ Caddy configuration is valid"
     
-    # Test nginx configuration
-    nginx -t && echo "✅ Nginx configuration is valid"
-    
-    echo "⚠️  Remember to:"
-    echo "   1. Update SSL certificate paths in nginx config"
-    echo "   2. Update IP whitelist in nginx config"
-    echo "   3. Restart nginx: systemctl restart nginx"
+    echo "⚠️  Remember to restart Caddy: systemctl restart caddy"
+else
+    echo "⚠️  Caddy not found. Install Caddy for reverse proxy support."
+    echo "   Visit: https://caddyserver.com/docs/install"
 fi
-
-# Create SSL certificate directory (if needed)
-SSL_DIR="/etc/ssl/private/$PROJECT_NAME"
-mkdir -p $SSL_DIR
-chown root:ssl-cert $SSL_DIR
-chmod 750 $SSL_DIR
 
 echo ""
 echo "✅ Installation completed!"
@@ -111,12 +100,11 @@ echo "2. Start the service: systemctl start echo-mcp-server"
 echo "3. Check status: systemctl status echo-mcp-server"
 echo "4. View logs: journalctl -u echo-mcp-server -f"
 echo ""
-echo "For nginx setup:"
-echo "1. Update /etc/nginx/sites-available/echo-mcp-server.conf"
-echo "2. Set correct SSL certificate paths"
-echo "3. Update IP whitelist"
-echo "4. Restart nginx: systemctl restart nginx"
+echo "For Caddy setup:"
+echo "1. Restart Caddy: systemctl restart caddy"
+echo "2. Check Caddy status: systemctl status caddy"
 echo ""
 echo "Test your deployment:"
 echo "curl -k https://$DOMAIN:8443/mcp"
+echo "curl -k https://$DOMAIN/mcp"
 echo "" 
