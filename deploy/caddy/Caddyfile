@@ -1,7 +1,8 @@
-# Echo MCP Server - Caddy Configuration
-# This file configures Caddy as a reverse proxy for the Echo MCP HTTPS Server
+# Memory MCP Server - Caddy Configuration
+# This file configures Caddy as a reverse proxy for the Memory MCP Server
 
 memory.aynshteyn.dev {
+    # Reverse proxy to the MCP server
     reverse_proxy 127.0.0.1:8443 {
         transport http {
             tls_insecure_skip_verify
@@ -15,6 +16,12 @@ memory.aynshteyn.dev {
         X-XSS-Protection "1; mode=block"
         Referrer-Policy "strict-origin-when-cross-origin"
         Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    }
+    
+    # Log requests
+    log {
+        output file /var/log/caddy/memory-mcp.log
+        format single_field common_log
     }
 }
 

@@ -1,16 +1,16 @@
 [Unit]
-Description=Echo MCP HTTPS Server
-Documentation=https://github.com/Vladikasik/mcm-https
+Description=Memory MCP Server
+Documentation=https://github.com/Vladikasik/memory-mcp-server
 After=network.target
 
 [Service]
 Type=exec
 User=www-data
 Group=www-data
-WorkingDirectory=/opt/echo-mcp-server
+WorkingDirectory=/opt/memory-mcp-server
 Environment=ENV=production
-EnvironmentFile=/opt/echo-mcp-server/.env
-ExecStart=/opt/echo-mcp-server/env/bin/python -m echo_mcp_server --production
+EnvironmentFile=/opt/memory-mcp-server/.env
+ExecStart=/opt/memory-mcp-server/env/bin/python -m echo_mcp_server
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=5
@@ -22,7 +22,7 @@ NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=yes
-ReadWritePaths=/opt/echo-mcp-server
+ReadWritePaths=/opt/memory-mcp-server
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 
 [Install]

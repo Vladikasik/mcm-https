@@ -1,142 +1,192 @@
-# Echo MCP HTTPS Server
+# Memory MCP Server
 
-A production-ready HTTPS MCP (Model Context Protocol) server with an echo tool.
+**Production-ready SSE MCP server specifically designed for Anthropic API compatibility.**
 
-## ✨ One-Click Production Deployment
+## ✅ Working with Anthropic API
 
-Deploy to `memory.aynshteyn.dev` with a single command:
-
-```bash
-curl -sSL https://raw.githubusercontent.com/Vladikasik/mcm-https/main/deploy/one-click-deploy.sh | sudo bash
-```
-
-**That's it!** Your MCP server will be live at:
-- 🌐 **Main URL**: `https://memory.aynshteyn.dev/mcp`
-- 🔗 **Direct URL**: `https://memory.aynshteyn.dev:8443/mcp`
+This server uses **SSE (Server-Sent Events)** transport, which is **required** by Anthropic's MCP connector API.
 
 ## Features
 
-- 🔧 **Echo Tool**: Returns input text unchanged
-- 🔒 **HTTPS Support**: Real SSL certificates with Caddy reverse proxy
-- 🚀 **Production Ready**: Systemd service, security headers
-- ⚡ **One-Click Deploy**: Fully automated setup
-- 🔍 **MCP Inspector Compatible**: Works out of the box
-- 🌐 **Open Access**: No IP restrictions (as requested)
+- **🔄 SSE Transport**: Fully compatible with Anthropic's MCP API requirements
+- **🔒 HTTPS/TLS**: Production-ready SSL/TLS support for domain deployment
+- **🛠️ Multiple Tools**: Echo, memory storage, and memory retrieval tools
+- **🌐 Domain Ready**: Configured for `memory.aynshteyn.dev`
+- **⚡ Clean Implementation**: Minimal, focused codebase without unnecessary complexity
 
-## Development Mode
+## Endpoints
+
+- **SSE (Anthropic API)**: `https://memory.aynshteyn.dev/sse`
+- **Health Check**: Available via root endpoint
+
+## Tools Available
+
+1. **echo**: Returns input text with "Echo: " prefix
+2. **store_memory**: Store key-value pairs in memory
+3. **get_memory**: Retrieve values from memory by key
+
+## Quick Start
+
+### Development Mode
 
 ```bash
-# Install dependencies
+# Clone and setup
+git clone <repo>
+cd memory-mcp-server
+python -m venv env
+source env/bin/activate  # On Windows: env\Scripts\activate
 pip install -e .
 
-# Run locally (HTTP mode - easiest for testing)
-python main.py --no-ssl --port 8080
-```
-
-Connect MCP Inspector to: `http://127.0.0.1:8080/mcp`
-
-**For HTTPS development:**
-```bash
-# Auto-generates self-signed certificate
+# Run development server (generates self-signed certificates)
 python main.py
-
-# If MCP Inspector has SSL issues, use Node.js bypass:
-NODE_TLS_REJECT_UNAUTHORIZED=0 npx @modelcontextprotocol/inspector
 ```
 
-## MCP Inspector Usage
+### Production Mode
 
-**Production (works immediately):**
 ```bash
-npx @modelcontextprotocol/inspector
-# Connect to: https://memory.aynshteyn.dev/mcp
-```
+# Copy and edit configuration
+cp config.env.example .env
+# Edit .env with your SSL certificate paths
 
-**Development HTTPS (if certificate issues):**
-```bash
-NODE_TLS_REJECT_UNAUTHORIZED=0 npx @modelcontextprotocol/inspector
-# Connect to: https://127.0.0.1:8443/mcp
+# Run production server
+ENV=production python main.py
 ```
 
 ## Configuration
 
-The server uses environment variables from `.env`:
-
-```env
-ENV=production
-HOST=0.0.0.0
-PORT=8443
-SSL_CERTFILE=/home/aynshteyn.dev-ssl-bundle/domain.cert.pem
-SSL_KEYFILE=/home/aynshteyn.dev-ssl-bundle/private.key.pem
-```
-
-## Rate Limiting (Optional)
-
-The basic deployment doesn't include rate limiting. To add it, you need a custom Caddy build:
+All configuration is done via environment variables (use `.env` file):
 
 ```bash
-# Build Caddy with rate limiting plugin
-xcaddy build --with github.com/mholt/caddy-ratelimit
+# Environment
+ENV=production                           # or development
 
-# Then add to your Caddyfile:
-rate_limit {
-    zone default {
-        key {remote_host}
-        events 60
-        window 1m
-    }
-}
+# Server
+HOST=0.0.0.0                            # Bind to all interfaces
+PORT=8443                               # HTTPS port (FastMCP uses defaults)
+SERVER_NAME=MemoryMCP                   # Server name
+
+# SSL Certificates (Production only)
+SSL_CERTFILE=/path/to/domain.cert.pem   # SSL certificate
+SSL_KEYFILE=/path/to/private.key.pem    # SSL private key
+
+# Optional
+LOG_LEVEL=info                          # Log level
+DOMAIN=memory.aynshteyn.dev             # Domain name
 ```
 
-## Monitoring
+## Testing with Anthropic API
 
 ```bash
-# Check service status
-sudo systemctl status echo-mcp-server
-
-# View logs
-sudo journalctl -u echo-mcp-server -f
-
-# Test endpoints
-curl -k https://memory.aynshteyn.dev/mcp
-curl -k https://memory.aynshteyn.dev:8443/mcp
+curl https://api.anthropic.com/v1/messages \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_ANTHROPIC_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "anthropic-beta: mcp-client-2025-04-04" \
+  -d '{
+    "model": "claude-sonnet-4-20250514",
+    "max_tokens": 1000,
+    "messages": [{"role": "user", "content": "What tools do you have available?"}],
+    "mcp_servers": [
+        {
+          "type": "url",
+          "url": "https://memory.aynshteyn.dev/sse",
+          "name": "memory"
+        }
+    ]
+}'
 ```
+
+## Testing Locally
+
+### Development Testing
+
+```bash
+# Start the server
+ENV=development python main.py
+
+# Test SSE endpoint (should return event stream)
+curl http://127.0.0.1:8000/sse
+```
+
+### MCP Inspector Testing
+
+For testing with MCP Inspector, you'll need to use mcp-proxy or similar tools since the inspector typically expects Streamable HTTP, but our server is SSE-only for Anthropic compatibility.
+
+## Production Deployment
+
+### Manual Deployment
+
+1. Copy files to server
+2. Create `.env` with production settings
+3. Install dependencies: `pip install -e .`
+4. Run: `ENV=production python main.py`
+
+### Systemd Service
+
+```bash
+# Copy service file
+sudo cp deploy/systemd/echo-mcp-server.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable echo-mcp-server
+sudo systemctl start echo-mcp-server
+```
+
+### With Caddy Reverse Proxy
+
+```bash
+# Copy Caddyfile
+sudo cp deploy/caddy/Caddyfile /etc/caddy/Caddyfile
+sudo systemctl restart caddy
+```
+
+## Architecture
+
+```
+Anthropic API ──→ HTTPS ──→ memory.aynshteyn.dev/sse ──→ FastMCP (SSE)
+```
+
+## Why This Works with Anthropic
+
+- **SSE Transport**: Anthropic requires Server-Sent Events transport (✅ Implemented)
+- **Stateless**: Each request is independent, no persistent connections required
+- **HTTPS**: Production-ready SSL/TLS with valid certificates
+- **Proper Protocol**: Implements MCP specification correctly for SSE transport
+
+## Key Differences from Previous Version
+
+- **SSE-Only**: Simplified to focus only on Anthropic API compatibility
+- **No Custom FastAPI**: Uses FastMCP's built-in SSE implementation
+- **Default Ports**: FastMCP handles port configuration automatically
+- **Cleaner Code**: Removed unnecessary complexity and mounting issues
 
 ## Troubleshooting
 
-**MCP Inspector SSL Issues:**
-- Use HTTP mode: `python main.py --no-ssl`
-- Use Node.js bypass: `NODE_TLS_REJECT_UNAUTHORIZED=0 npx @modelcontextprotocol/inspector`
+### Anthropic Connection Issues
 
-**Service Issues:**
-- Check logs: `sudo journalctl -u echo-mcp-server -f`
-- Restart service: `sudo systemctl restart echo-mcp-server`
-- Restart Caddy: `sudo systemctl restart caddy`
+1. **Check SSL certificates**: Ensure valid SSL certs for your domain
+2. **Verify endpoint**: Use `/sse` endpoint specifically
+3. **Check firewall**: Ensure port is accessible
+4. **Test manually**: `curl https://memory.aynshteyn.dev/sse` should return SSE stream
 
-**Port Issues:**
-- Use different port: `python main.py --port 9443`
+### Common Issues
 
-## Project Structure
+1. **FastMCP version**: Ensure you have the latest MCP SDK
+2. **Environment variables**: Check your `.env` file configuration
+3. **SSL setup**: Verify certificate paths and permissions
 
+### Successful SSE Response
+
+A working SSE endpoint should return:
 ```
-echo-mcp-server/
-├── echo_mcp_server/          # Main server code
-├── deploy/
-│   ├── one-click-deploy.sh   # 🚀 One-click deployment script
-│   ├── install.sh            # Manual deployment script
-│   ├── systemd/              # Systemd service
-│   └── caddy/                # Caddy configuration
-├── main.py                   # Development entry point
-├── config.env.example        # Environment configuration
-└── README.md                 # This file
+HTTP/1.1 200 OK
+content-type: text/event-stream; charset=utf-8
+
+event: endpoint
+data: /messages/?session_id=...
+
+: ping - [timestamp]
 ```
-
-## Contributing
-
-1. Fork the repository
-2. Make your changes
-3. Submit a pull request
 
 ## License
 
-MIT License 
+MIT 
