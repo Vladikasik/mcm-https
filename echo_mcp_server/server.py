@@ -156,7 +156,36 @@ class EchoMCPServer:
         ssl_context = self.get_ssl_context(cert_file, key_file, development_mode, no_ssl, trust_cert)
         
         # Get the ASGI app from FastMCP
-        app = self.mcp.streamable_http_app() if hasattr(self.mcp, 'streamable_http_app') else self.mcp.create_asgi_app()
+        mcp_app = self.mcp.streamable_http_app() if hasattr(self.mcp, 'streamable_http_app') else self.mcp.create_asgi_app()
+        
+        # Create main FastAPI app with multiple MCP endpoints
+        from fastapi import FastAPI
+        from fastapi.middleware.cors import CORSMiddleware
+        
+        app = FastAPI(title="Echo MCP Server", description="MCP Server with multiple endpoints for compatibility")
+        
+        # Add CORS middleware for better compatibility
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+        
+        # Mount the MCP app on multiple endpoints for compatibility
+        app.mount("/mcp", mcp_app)
+        app.mount("/sse", mcp_app)
+        
+        # Add a root endpoint for health checks
+        @app.get("/")
+        async def root():
+            return {
+                "service": "Echo MCP Server",
+                "status": "running",
+                "endpoints": ["/mcp", "/sse"],
+                "tools": ["echo"]
+            }
         
         # Update uvicorn config
         config = {
@@ -178,7 +207,8 @@ class EchoMCPServer:
                 config["port"] = 8080
                 port = 8080
         
-        print(f"MCP Server URL: {protocol}://{host}:{port}/mcp")
+        print(f"MCP Server URL: {protocol}://{host}:{port}")
+        print(f"Available endpoints: {protocol}://{host}:{port}/mcp, {protocol}://{host}:{port}/sse")
         print(f"Available tools: echo")
         
         if development_mode and ssl_context:
@@ -239,7 +269,36 @@ class EchoMCPServer:
         ssl_context = self.get_ssl_context(cert_file, key_file, development_mode, no_ssl, trust_cert)
         
         # Get the ASGI app from FastMCP
-        app = self.mcp.streamable_http_app() if hasattr(self.mcp, 'streamable_http_app') else self.mcp.create_asgi_app()
+        mcp_app = self.mcp.streamable_http_app() if hasattr(self.mcp, 'streamable_http_app') else self.mcp.create_asgi_app()
+        
+        # Create main FastAPI app with multiple MCP endpoints
+        from fastapi import FastAPI
+        from fastapi.middleware.cors import CORSMiddleware
+        
+        app = FastAPI(title="Echo MCP Server", description="MCP Server with multiple endpoints for compatibility")
+        
+        # Add CORS middleware for better compatibility
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+        
+        # Mount the MCP app on multiple endpoints for compatibility
+        app.mount("/mcp", mcp_app)
+        app.mount("/sse", mcp_app)
+        
+        # Add a root endpoint for health checks
+        @app.get("/")
+        async def root():
+            return {
+                "service": "Echo MCP Server",
+                "status": "running",
+                "endpoints": ["/mcp", "/sse"],
+                "tools": ["echo"]
+            }
         
         # Create uvicorn config
         config_dict = {

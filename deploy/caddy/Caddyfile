@@ -2,9 +2,36 @@
 # This file configures Caddy as a reverse proxy for the Echo MCP HTTPS Server
 
 memory.aynshteyn.dev {
-    reverse_proxy 127.0.0.1:8443 {
-        transport http {
-            tls_insecure_skip_verify
+    # Handle SSE endpoint with specific configuration for streaming
+    handle /sse* {
+        reverse_proxy 127.0.0.1:8443 {
+            transport http {
+                tls_insecure_skip_verify
+            }
+            # Optimize for streaming
+            flush_interval -1
+        }
+        header {
+            Cache-Control "no-cache"
+            Connection "keep-alive"
+        }
+    }
+    
+    # Handle MCP endpoint
+    handle /mcp* {
+        reverse_proxy 127.0.0.1:8443 {
+            transport http {
+                tls_insecure_skip_verify
+            }
+        }
+    }
+    
+    # Handle root and other paths
+    handle {
+        reverse_proxy 127.0.0.1:8443 {
+            transport http {
+                tls_insecure_skip_verify
+            }
         }
     }
     
@@ -20,9 +47,36 @@ memory.aynshteyn.dev {
 
 # Direct access on port 8443 (no proxy)
 memory.aynshteyn.dev:8443 {
-    reverse_proxy 127.0.0.1:8443 {
-        transport http {
-            tls_insecure_skip_verify
+    # Handle SSE endpoint with specific configuration for streaming
+    handle /sse* {
+        reverse_proxy 127.0.0.1:8443 {
+            transport http {
+                tls_insecure_skip_verify
+            }
+            # Optimize for streaming
+            flush_interval -1
+        }
+        header {
+            Cache-Control "no-cache"
+            Connection "keep-alive"
+        }
+    }
+    
+    # Handle MCP endpoint
+    handle /mcp* {
+        reverse_proxy 127.0.0.1:8443 {
+            transport http {
+                tls_insecure_skip_verify
+            }
+        }
+    }
+    
+    # Handle root and other paths
+    handle {
+        reverse_proxy 127.0.0.1:8443 {
+            transport http {
+                tls_insecure_skip_verify
+            }
         }
     }
 } 
