@@ -93,15 +93,6 @@ $DOMAIN {
         Referrer-Policy "strict-origin-when-cross-origin"
         Strict-Transport-Security "max-age=31536000; includeSubDomains"
     }
-    
-    # Rate limiting
-    rate_limit {
-        zone static_ip {
-            key {remote_host}
-            window 1m
-            events 60
-        }
-    }
 }
 
 # Direct access on port 8443

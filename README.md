@@ -18,9 +18,10 @@ curl -sSL https://raw.githubusercontent.com/Vladikasik/mcm-https/main/deploy/one
 
 - 🔧 **Echo Tool**: Returns input text unchanged
 - 🔒 **HTTPS Support**: Real SSL certificates with Caddy reverse proxy
-- 🚀 **Production Ready**: Systemd service, rate limiting, security headers
+- 🚀 **Production Ready**: Systemd service, security headers
 - ⚡ **One-Click Deploy**: Fully automated setup
 - 🔍 **MCP Inspector Compatible**: Works out of the box
+- 🌐 **Open Access**: No IP restrictions (as requested)
 
 ## Development Mode
 
@@ -67,6 +68,24 @@ HOST=0.0.0.0
 PORT=8443
 SSL_CERTFILE=/home/aynshteyn.dev-ssl-bundle/domain.cert.pem
 SSL_KEYFILE=/home/aynshteyn.dev-ssl-bundle/private.key.pem
+```
+
+## Rate Limiting (Optional)
+
+The basic deployment doesn't include rate limiting. To add it, you need a custom Caddy build:
+
+```bash
+# Build Caddy with rate limiting plugin
+xcaddy build --with github.com/mholt/caddy-ratelimit
+
+# Then add to your Caddyfile:
+rate_limit {
+    zone default {
+        key {remote_host}
+        events 60
+        window 1m
+    }
+}
 ```
 
 ## Monitoring
