@@ -403,7 +403,7 @@ class MCPServer:
                     port=port,
                     ssl_keyfile=key_file,
                     ssl_certfile=cert_file,
-                    log_level="DEBUG" if development_mode else "INFO"
+                    log_level="debug" if development_mode else "info"
                 )
                 return
             else:
